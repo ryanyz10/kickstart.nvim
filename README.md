@@ -5,5 +5,9 @@
 - [ ] [Learn Lua in nvim](https://neovim.io/doc/user/lua-guide.html)
 
 # Setup
-See the base kickstart.nvim README for set up instructions!
+```
+git clone https://github.com/nvim-lua/kickstart.nvim.git "${XDG_CONFIG_HOME:-$HOME/.config}"/nvim
+```
+
+See the base kickstart.nvim README for more detailed set up instructions!
 
