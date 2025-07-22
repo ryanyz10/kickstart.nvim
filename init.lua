@@ -100,9 +100,8 @@ vim.g.have_nerd_font = false
 
 -- Make line numbers default
 vim.o.number = true
--- You can also add relative line numbers, to help with jumping.
---  Experiment for yourself to see if you like it!
--- vim.o.relativenumber = true
+-- Enable hybrid line numbers (absolute current line, relative others)
+vim.o.relativenumber = true
 
 -- Enable mouse mode, can be useful for resizing splits for example!
 vim.o.mouse = 'a'
@@ -183,6 +182,415 @@ vim.keymap.set('n', '<leader>q', vim.diagnostic.setloclist, { desc = 'Open diagn
 -- NOTE: This won't work in all terminal emulators/tmux/etc. Try your own mapping
 -- or just use <C-\><C-n> to exit terminal mode
 vim.keymap.set('t', '<Esc><Esc>', '<C-\\><C-n>', { desc = 'Exit terminal mode' })
+
+-- Quit Neovim entirely with leader key
+vim.keymap.set('n', '<leader>x', '<cmd>qa<CR>', { desc = 'E[x]it Neovim' })
+
+-- Buffer management keymaps
+vim.keymap.set('n', '<leader>bn', '<cmd>bnext<CR>', { desc = 'Buffer [n]ext' })
+vim.keymap.set('n', '<leader>bp', '<cmd>bprev<CR>', { desc = 'Buffer [p]revious' })
+vim.keymap.set('n', '<leader>bd', '<cmd>bdelete<CR>', { desc = 'Buffer [d]elete' })
+vim.keymap.set('n', '<leader>bb', '<cmd>buffer #<CR>', { desc = 'Buffer switch to last' })
+
+-- Tab management keymaps
+vim.keymap.set('n', '<leader>tn', '<cmd>tabnext<CR>', { desc = 'Tab [n]ext' })
+vim.keymap.set('n', '<leader>tp', '<cmd>tabprev<CR>', { desc = 'Tab [p]revious' })
+vim.keymap.set('n', '<leader>tc', '<cmd>tabnew<CR>', { desc = 'Tab [c]reate new' })
+vim.keymap.set('n', '<leader>tx', '<cmd>tabclose<CR>', { desc = 'Tab close (e[x]it)' })
+vim.keymap.set('n', '<leader>tl', function()
+  local pickers = require('telescope.pickers')
+  local finders = require('telescope.finders')
+  local conf = require('telescope.config').values
+  local actions = require('telescope.actions')
+  local action_state = require('telescope.actions.state')
+  
+  -- Get tab info
+  local tabs = {}
+  for i = 1, vim.fn.tabpagenr('$') do
+    local buffers_in_tab = {}
+    for _, buf in ipairs(vim.fn.tabpagebuflist(i)) do
+      local name = vim.fn.bufname(buf)
+      if name ~= '' then
+        table.insert(buffers_in_tab, vim.fn.fnamemodify(name, ':t'))
+      end
+    end
+    local current = i == vim.fn.tabpagenr() and ' [current]' or ''
+    table.insert(tabs, {
+      display = string.format('Tab %d: %s%s', i, table.concat(buffers_in_tab, ', '), current),
+      tab_nr = i
+    })
+  end
+  
+  pickers.new({}, {
+    prompt_title = 'Tabs',
+    finder = finders.new_table {
+      results = tabs,
+      entry_maker = function(entry)
+        return {
+          value = entry,
+          display = entry.display,
+          ordinal = entry.display,
+        }
+      end,
+    },
+    sorter = conf.generic_sorter({}),
+    attach_mappings = function(prompt_bufnr, map)
+      actions.select_default:replace(function()
+        actions.close(prompt_bufnr)
+        local selection = action_state.get_selected_entry()
+        vim.cmd('tabnext ' .. selection.value.tab_nr)
+      end)
+      
+      -- Add tab delete functionality
+      map('i', '<C-x>', function()
+        local selection = action_state.get_selected_entry()
+        if selection then
+          local tab_nr = selection.value.tab_nr
+          local current_tab = vim.fn.tabpagenr()
+          
+          -- Close the tab
+          vim.cmd('tabclose ' .. tab_nr)
+          
+          -- Refresh the picker with updated tab list
+          local current_picker = action_state.get_current_picker(prompt_bufnr)
+          local new_tabs = {}
+          for i = 1, vim.fn.tabpagenr('$') do
+            local buffers_in_tab = {}
+            for _, buf in ipairs(vim.fn.tabpagebuflist(i)) do
+              local name = vim.fn.bufname(buf)
+              if name ~= '' then
+                table.insert(buffers_in_tab, vim.fn.fnamemodify(name, ':t'))
+              end
+            end
+            local current = i == vim.fn.tabpagenr() and ' [current]' or ''
+            table.insert(new_tabs, {
+              display = string.format('Tab %d: %s%s', i, table.concat(buffers_in_tab, ', '), current),
+              tab_nr = i
+            })
+          end
+          current_picker:refresh(finders.new_table {
+            results = new_tabs,
+            entry_maker = function(entry)
+              return {
+                value = entry,
+                display = entry.display,
+                ordinal = entry.display,
+              }
+            end,
+          })
+        end
+      end)
+      
+      map('n', '<C-x>', function()
+        local selection = action_state.get_selected_entry()
+        if selection then
+          local tab_nr = selection.value.tab_nr
+          vim.cmd('tabclose ' .. tab_nr)
+          
+          -- Refresh the picker
+          local current_picker = action_state.get_current_picker(prompt_bufnr)
+          local new_tabs = {}
+          for i = 1, vim.fn.tabpagenr('$') do
+            local buffers_in_tab = {}
+            for _, buf in ipairs(vim.fn.tabpagebuflist(i)) do
+              local name = vim.fn.bufname(buf)
+              if name ~= '' then
+                table.insert(buffers_in_tab, vim.fn.fnamemodify(name, ':t'))
+              end
+            end
+            local current = i == vim.fn.tabpagenr() and ' [current]' or ''
+            table.insert(new_tabs, {
+              display = string.format('Tab %d: %s%s', i, table.concat(buffers_in_tab, ', '), current),
+              tab_nr = i
+            })
+          end
+          current_picker:refresh(finders.new_table {
+            results = new_tabs,
+            entry_maker = function(entry)
+              return {
+                value = entry,
+                display = entry.display,
+                ordinal = entry.display,
+              }
+            end,
+          })
+        end
+      end)
+      
+      map('n', 'dd', function()
+        local selection = action_state.get_selected_entry()
+        if selection then
+          local tab_nr = selection.value.tab_nr
+          vim.cmd('tabclose ' .. tab_nr)
+          
+          -- Refresh the picker
+          local current_picker = action_state.get_current_picker(prompt_bufnr)
+          local new_tabs = {}
+          for i = 1, vim.fn.tabpagenr('$') do
+            local buffers_in_tab = {}
+            for _, buf in ipairs(vim.fn.tabpagebuflist(i)) do
+              local name = vim.fn.bufname(buf)
+              if name ~= '' then
+                table.insert(buffers_in_tab, vim.fn.fnamemodify(name, ':t'))
+              end
+            end
+            local current = i == vim.fn.tabpagenr() and ' [current]' or ''
+            table.insert(new_tabs, {
+              display = string.format('Tab %d: %s%s', i, table.concat(buffers_in_tab, ', '), current),
+              tab_nr = i
+            })
+          end
+          current_picker:refresh(finders.new_table {
+            results = new_tabs,
+            entry_maker = function(entry)
+              return {
+                value = entry,
+                display = entry.display,
+                ordinal = entry.display,
+              }
+            end,
+          })
+        end
+      end)
+      
+      return true
+    end,
+  }):find()
+end, { desc = 'Tab [l]ist' })
+
+-- Window management keymaps
+vim.keymap.set('n', '<leader>wv', '<cmd>vsplit<CR>', { desc = 'Window split [v]ertical' })
+vim.keymap.set('n', '<leader>wh', '<cmd>split<CR>', { desc = 'Window split [h]orizontal' })
+vim.keymap.set('n', '<leader>wd', '<C-w>c', { desc = 'Window [d]elete/close' })
+vim.keymap.set('n', '<leader>wo', '<C-w>o', { desc = 'Window [o]nly (close others)' })
+vim.keymap.set('n', '<leader>ww', '<C-w>w', { desc = 'Window cycle' })
+vim.keymap.set('n', '<leader>w=', '<C-w>=', { desc = 'Window equalize size' })
+vim.keymap.set('n', '<leader>w+', '<C-w>+', { desc = 'Window increase height' })
+vim.keymap.set('n', '<leader>w-', '<C-w>-', { desc = 'Window decrease height' })
+vim.keymap.set('n', '<leader>w>', '<C-w>>', { desc = 'Window increase width' })
+vim.keymap.set('n', '<leader>w<', '<C-w><', { desc = 'Window decrease width' })
+vim.keymap.set('n', '<leader>wa', '<cmd>FocusToggle<CR>', { desc = 'Window [a]uto-resize toggle' })
+vim.keymap.set('n', '<leader>wx', '<C-w>c', { desc = 'Window close (e[x]it split)' })
+
+-- Floating terminal toggle
+local function toggle_floating_terminal()
+  -- Check if floating terminal buffer exists
+  local floating_term_buf = vim.g.floating_term_buf
+  local floating_term_win = vim.g.floating_term_win
+  
+  -- If window is open, close it
+  if floating_term_win and vim.api.nvim_win_is_valid(floating_term_win) then
+    vim.api.nvim_win_close(floating_term_win, true)
+    vim.g.floating_term_win = nil
+    return
+  end
+  
+  -- If buffer doesn't exist or is invalid, create new one
+  if not floating_term_buf or not vim.api.nvim_buf_is_valid(floating_term_buf) then
+    floating_term_buf = vim.api.nvim_create_buf(false, true)
+    vim.g.floating_term_buf = floating_term_buf
+  end
+  
+  -- Calculate window dimensions (80% of screen)
+  local width = math.floor(vim.o.columns * 0.8)
+  local height = math.floor(vim.o.lines * 0.8)
+  local row = math.floor((vim.o.lines - height) / 2)
+  local col = math.floor((vim.o.columns - width) / 2)
+  
+  -- Open floating window
+  local win_config = {
+    relative = 'editor',
+    width = width,
+    height = height,
+    row = row,
+    col = col,
+    style = 'minimal',
+    border = 'rounded'
+  }
+  
+  floating_term_win = vim.api.nvim_open_win(floating_term_buf, true, win_config)
+  vim.g.floating_term_win = floating_term_win
+  
+  -- Start terminal in the buffer if it's not already a terminal
+  local buf_name = vim.api.nvim_buf_get_name(floating_term_buf)
+  if not string.match(buf_name, '^term://') then
+    vim.fn.termopen(vim.o.shell)
+  end
+  
+  -- Enter insert mode
+  vim.cmd('startinsert')
+end
+
+vim.keymap.set({'n', 't'}, '<M-i>', toggle_floating_terminal, { desc = 'Toggle floating terminal' })
+
+-- Split keybindings (I think these fit well under leader-s for "split")
+vim.keymap.set('n', '<leader>sv', '<cmd>vsplit<CR>', { desc = '[S]plit [v]ertical' })
+vim.keymap.set('n', '<leader>sh', '<cmd>split<CR>', { desc = '[S]plit [h]orizontal' })
+vim.keymap.set('n', '<leader>st', '<cmd>tabnew<CR>', { desc = '[S]plit new [t]ab' })
+vim.keymap.set('n', '<leader>se', '<C-w>=', { desc = '[S]plit [e]qualize' })
+
+-- File action keymaps
+vim.keymap.set('n', '<leader>fp', function()
+  local relative_path = vim.fn.fnamemodify(vim.fn.expand('%'), ':.')
+  if relative_path == '' then
+    vim.notify('No file open', vim.log.levels.WARN)
+    return
+  end
+  vim.fn.setreg('+', relative_path)
+  vim.notify('Copied to clipboard: ' .. relative_path, vim.log.levels.INFO)
+end, { desc = '[F]ile copy [p]ath' })
+
+vim.keymap.set('n', '<leader>fg', function()
+  local file_path = vim.fn.fnamemodify(vim.fn.expand('%'), ':.')
+  if file_path == '' then
+    vim.notify('No file open', vim.log.levels.WARN)
+    return
+  end
+  
+  -- Get git remote URL
+  local remote_url = vim.fn.system('git remote get-url origin 2>/dev/null'):gsub('\n', '')
+  if vim.v.shell_error ~= 0 then
+    vim.notify('Not in a git repository or no origin remote', vim.log.levels.ERROR)
+    return
+  end
+  
+  -- Convert SSH URL to HTTPS if needed
+  remote_url = remote_url:gsub('git@github%.com:', 'https://github.com/')
+  remote_url = remote_url:gsub('%.git$', '')
+  
+  -- Get current branch
+  local current_branch = vim.fn.system('git branch --show-current 2>/dev/null'):gsub('\n', '')
+  if vim.v.shell_error ~= 0 then
+    current_branch = 'main'
+  end
+  
+  -- Create choice dialog
+  local choices = {
+    '&1. Open in master/main branch',
+    '&2. Open in current branch (' .. current_branch .. ')',
+  }
+  
+  vim.ui.select(choices, {
+    prompt = 'Open file in GitHub:',
+  }, function(choice, idx)
+    if not choice then return end
+    
+    local branch = idx == 1 and 'main' or current_branch
+    local line_number = vim.fn.line('.')
+    local github_url = string.format('%s/blob/%s/%s#L%d', remote_url, branch, file_path, line_number)
+    
+    -- Try different commands to open URL
+    local open_cmd
+    if vim.fn.executable('open') == 1 then
+      open_cmd = 'open'  -- macOS
+    elseif vim.fn.executable('xdg-open') == 1 then
+      open_cmd = 'xdg-open'  -- Linux
+    elseif vim.fn.executable('start') == 1 then
+      open_cmd = 'start'  -- Windows
+    else
+      vim.fn.setreg('+', github_url)
+      vim.notify('URL copied to clipboard: ' .. github_url, vim.log.levels.INFO)
+      return
+    end
+    
+    vim.fn.system(string.format('%s "%s"', open_cmd, github_url))
+    vim.notify('Opening in GitHub: ' .. github_url, vim.log.levels.INFO)
+  end)
+end, { desc = '[F]ile open [G]itHub' })
+
+vim.keymap.set('n', '<leader>ff', function()
+  -- Try conform.nvim first (if available), then LSP formatting, then built-in
+  local conform_ok, conform = pcall(require, 'conform')
+  if conform_ok then
+    conform.format({ async = true, lsp_format = 'fallback' })
+    vim.notify('Formatted with Conform', vim.log.levels.INFO)
+  else
+    -- Fallback to LSP formatting
+    vim.lsp.buf.format({ async = true })
+    vim.notify('Formatted with LSP', vim.log.levels.INFO)
+  end
+end, { desc = '[F]ile [f]ormat' })
+
+vim.keymap.set('n', '<leader>fs', '<cmd>w<CR>', { desc = '[F]ile [s]ave' })
+
+-- LSP "go to" keymaps (using 'g' prefix)
+vim.keymap.set('n', 'gd', vim.lsp.buf.definition, { desc = '[G]o to [d]efinition' })
+vim.keymap.set('n', 'gD', vim.lsp.buf.declaration, { desc = '[G]o to [D]eclaration' })
+vim.keymap.set('n', 'gi', vim.lsp.buf.implementation, { desc = '[G]o to [i]mplementation' })
+vim.keymap.set('n', 'gr', vim.lsp.buf.references, { desc = '[G]o to [r]eferences' })
+vim.keymap.set('n', 'gt', vim.lsp.buf.type_definition, { desc = '[G]o to [t]ype definition' })
+
+-- Scratchpad keymaps
+vim.keymap.set('n', '<leader>sn', function()
+  -- Prompt for name and filetype
+  vim.ui.input({ prompt = 'Scratch name (e.g., "api-test", "interview-prep"): ' }, function(name)
+    if not name or name == '' then
+      name = 'scratch-' .. os.date('%Y%m%d-%H%M%S')
+    end
+    
+    vim.ui.select(
+      { 'lua', 'ruby', 'typescript', 'javascript', 'python', 'go', 'rust', 'bash', 'json', 'yaml', 'markdown' },
+      { prompt = 'Select language:' },
+      function(filetype)
+        if not filetype then return end
+        
+        local extensions = {
+          lua = 'lua', ruby = 'rb', typescript = 'ts', javascript = 'js',
+          python = 'py', go = 'go', rust = 'rs', bash = 'sh',
+          json = 'json', yaml = 'yaml', markdown = 'md'
+        }
+        
+        local filename = name .. '.' .. extensions[filetype]
+        local scratch_dir = vim.fn.stdpath('cache') .. '/scratch.nvim'
+        local filepath = scratch_dir .. '/' .. filename
+        
+        -- Ensure directory exists
+        vim.fn.mkdir(scratch_dir, 'p')
+        
+        -- Open the file
+        vim.cmd('edit ' .. filepath)
+        
+        -- Add header comment with description and date
+        local header_lines = {
+          '-- Scratch: ' .. name,
+          '-- Created: ' .. os.date('%Y-%m-%d %H:%M:%S'),
+          '-- Language: ' .. filetype,
+          '',
+          ''
+        }
+        
+        -- Adjust comment style for different languages
+        if filetype == 'python' or filetype == 'bash' then
+          for i, line in ipairs(header_lines) do
+            header_lines[i] = line:gsub('^%-%-', '#')
+          end
+        elseif filetype == 'javascript' or filetype == 'typescript' then
+          for i, line in ipairs(header_lines) do
+            header_lines[i] = line:gsub('^%-%-', '//')
+          end
+        elseif filetype == 'rust' or filetype == 'go' then
+          for i, line in ipairs(header_lines) do
+            header_lines[i] = line:gsub('^%-%-', '//')
+          end
+        elseif filetype == 'markdown' then
+          for i, line in ipairs(header_lines) do
+            header_lines[i] = line:gsub('^%-%-', '<!--') .. (line:match('%-%- (.+)') and ' -->' or '')
+          end
+          header_lines[1] = '<!-- Scratch: ' .. name .. ' -->'
+          header_lines[2] = '<!-- Created: ' .. os.date('%Y-%m-%d %H:%M:%S') .. ' -->'
+          header_lines[3] = '<!-- Language: ' .. filetype .. ' -->'
+        end
+        
+        vim.api.nvim_buf_set_lines(0, 0, 0, false, header_lines)
+        vim.api.nvim_win_set_cursor(0, {#header_lines, 0})
+        vim.cmd('startinsert!')
+      end
+    )
+  end)
+end, { desc = '[S]cratch [n]ew (named)' })
+
+vim.keymap.set('n', '<leader>so', '<cmd>ScratchOpen<CR>', { desc = '[S]cratch [o]pen' })
+vim.keymap.set('n', '<leader>sl', '<cmd>ScratchOpenFzf<CR>', { desc = '[S]cratch [l]ist (Telescope)' })
 
 -- TIP: Disable arrow keys in normal mode
 -- vim.keymap.set('n', '<left>', '<cmd>echo "Use h to move!!"<CR>')
@@ -407,11 +815,26 @@ require('lazy').setup({
         -- You can put your default mappings / updates / etc. in here
         --  All the info you're looking for is in `:help telescope.setup()`
         --
-        -- defaults = {
-        --   mappings = {
-        --     i = { ['<c-enter>'] = 'to_fuzzy_refine' },
-        --   },
-        -- },
+        defaults = {
+          mappings = {
+            i = { 
+              ['<c-enter>'] = 'to_fuzzy_refine',
+            },
+          },
+        },
+        pickers = {
+          buffers = {
+            mappings = {
+              i = {
+                ['<c-x>'] = 'delete_buffer', -- Delete buffer with Ctrl-x
+              },
+              n = {
+                ['<c-x>'] = 'delete_buffer', -- Also works in normal mode
+                ['dd'] = 'delete_buffer',    -- Delete with dd (like Vim)
+              },
+            },
+          },
+        },
         -- pickers = {}
         extensions = {
           ['ui-select'] = {
@@ -670,7 +1093,8 @@ require('lazy').setup({
       --  - capabilities (table): Override fields in capabilities. Can be used to disable certain LSP features.
       --  - settings (table): Override the default settings passed when initializing the server.
       --        For example, to see the options for `lua_ls`, you could go to: https://luals.github.io/wiki/settings/
-      local servers = {
+      -- Servers managed by Mason
+      local mason_servers = {
         -- clangd = {},
         -- gopls = {},
         -- pyright = {},
@@ -681,8 +1105,7 @@ require('lazy').setup({
         --    https://github.com/pmizio/typescript-tools.nvim
         --
         -- But for many setups, the LSP (`ts_ls`) will work just fine
-        -- ts_ls = {},
-        --
+        ts_ls = {},
 
         lua_ls = {
           -- cmd = { ... },
@@ -700,6 +1123,21 @@ require('lazy').setup({
         },
       }
 
+      -- Servers using local installations (not managed by Mason)
+      local local_servers = {
+        ruby_lsp = {
+          cmd = { '/Users/ryanzhou/.asdf/shims/ruby-lsp' }, -- Use full path to avoid asdf version issues
+        },
+      }
+
+      -- Combine all servers for configuration
+      local servers = vim.tbl_extend('force', mason_servers, local_servers)
+      ---@type MasonLspconfigSettings
+      ---@diagnostic disable-next-line: missing-fields
+      require('mason-lspconfig').setup {
+        automatic_enable = vim.tbl_keys(mason_servers),
+      }
+
       -- Ensure the servers and tools above are installed
       --
       -- To check the current status of installed tools and/or manually install
@@ -713,26 +1151,24 @@ require('lazy').setup({
       --
       -- You can add other tools here that you want Mason to install
       -- for you, so that they are available from within Neovim.
-      local ensure_installed = vim.tbl_keys(servers or {})
+      local ensure_installed = vim.tbl_keys(mason_servers)
       vim.list_extend(ensure_installed, {
         'stylua', -- Used to format Lua code
       })
       require('mason-tool-installer').setup { ensure_installed = ensure_installed }
 
-      require('mason-lspconfig').setup {
-        ensure_installed = {}, -- explicitly set to an empty table (Kickstart populates installs via mason-tool-installer)
-        automatic_installation = false,
-        handlers = {
-          function(server_name)
-            local server = servers[server_name] or {}
-            -- This handles overriding only values explicitly passed
-            -- by the server configuration above. Useful when disabling
-            -- certain features of an LSP (for example, turning off formatting for ts_ls)
-            server.capabilities = vim.tbl_deep_extend('force', {}, capabilities, server.capabilities or {})
-            require('lspconfig')[server_name].setup(server)
-          end,
-        },
-      }
+      -- Configure all servers (Mason handles enabling Mason servers automatically)
+      for server_name, config in pairs(servers) do
+        vim.lsp.config(server_name, config)
+      end
+
+      -- Manually enable local servers (not managed by Mason)
+      for server_name in pairs(local_servers) do
+        vim.lsp.enable(server_name)
+      end
+
+      -- NOTE: Some servers may require an old setup until they are updated. For the full list refer here: https://github.com/neovim/nvim-lspconfig/issues/3705
+      -- These servers will have to be manually set up with require("lspconfig").server_name.setup{}
     end,
   },
 
@@ -900,6 +1336,158 @@ require('lazy').setup({
 
   -- Highlight todo, notes, etc in comments
   { 'folke/todo-comments.nvim', event = 'VimEnter', dependencies = { 'nvim-lua/plenary.nvim' }, opts = { signs = false } },
+
+  -- Session management - automatically save and restore sessions
+  {
+    'rmagatti/auto-session',
+    lazy = false,
+    ---@module "auto-session"
+    ---@type AutoSession.Config
+    opts = {
+      suppressed_dirs = { '~/', '~/Projects', '~/Downloads', '/' },
+      -- log_level = 'debug',
+    },
+  },
+
+  -- Scratchpad for quick notes and code snippets
+  {
+    'LintaoAmons/scratch.nvim',
+    event = 'VeryLazy',
+    opts = {
+      scratch_file_dir = vim.fn.stdpath('cache') .. '/scratch.nvim', -- where to save scratch files
+      window_cmd = 'edit', -- 'edit' | 'split' | 'vsplit' | 'tabedit'
+      use_telescope = true, -- enable telescope integration
+      localfile_name = '.scratch.lua', -- local scratch file name
+    },
+  },
+
+  -- Auto-focus and resize windows
+  {
+    'nvim-focus/focus.nvim',
+    version = '*',
+    opts = {
+      enable = true, -- Enable module
+      commands = true, -- Create Focus commands
+      autoresize = {
+        enable = true, -- Enable or disable auto-resizing of splits
+        width = 0, -- Force width(s) for focused window. 0 means no enforced width
+        height = 0, -- Force height(s) for focused window. 0 means no enforced height
+        minwidth = 0, -- Force minimum width(s) for unfocused windows
+        minheight = 0, -- Force minimum height(s) for unfocused windows
+        height_quickfix = 10, -- Set the height of quickfix panel
+      },
+      split = {
+        bufnew = false, -- Create blank buffer for new split windows
+        tmux = false, -- Create tmux splits instead of neovim splits
+      },
+      ui = {
+        number = false, -- Display line numbers in the focussed window only
+        relativenumber = false, -- Display relative line numbers in the focussed window only
+        hybridnumber = false, -- Display hybrid line numbers in the focussed window only
+        absolutenumber_unfocussed = false, -- Preserve absolute numbers in the unfocussed windows
+        cursorline = true, -- Display a cursorline in the focussed window only
+        cursorcolumn = false, -- Display cursorcolumn in the focussed window only
+        colorcolumn = {
+          enable = false, -- Display colorcolumn in the foccused window only
+          list = '+1', -- Set the comma-saperated list for the colorcolumn
+        },
+        signcolumn = true, -- Display signcolumn in the focussed window only
+        winhighlight = false, -- Auto highlighting for focussed/unfocussed windows
+      }
+    },
+  },
+
+  -- Start page/dashboard
+  {
+    'goolord/alpha-nvim',
+    event = 'VimEnter',
+    opts = function()
+      local dashboard = require('alpha.themes.dashboard')
+      local logo = [[
+      ███╗   ██╗███████╗ ██████╗ ██╗   ██╗██╗███╗   ███╗
+      ████╗  ██║██╔════╝██╔═══██╗██║   ██║██║████╗ ████║
+      ██╔██╗ ██║█████╗  ██║   ██║██║   ██║██║██╔████╔██║
+      ██║╚██╗██║██╔══╝  ██║   ██║╚██╗ ██╔╝██║██║╚██╔╝██║
+      ██║ ╚████║███████╗╚██████╔╝ ╚████╔╝ ██║██║ ╚═╝ ██║
+      ╚═╝  ╚═══╝╚══════╝ ╚═════╝   ╚═══╝  ╚═╝╚═╝     ╚═╝
+      ]]
+
+      dashboard.section.header.val = vim.split(logo, '\n')
+      
+      -- Menu items
+      dashboard.section.buttons.val = {
+        dashboard.button('e', '  New file', ':ene <BAR> startinsert <CR>'),
+        dashboard.button('f', '󰈞  Find file', ':Telescope find_files <CR>'),
+        dashboard.button('r', '󰄉  Recent files', ':Telescope oldfiles <CR>'),
+        dashboard.button('g', '󰊄  Find text', ':Telescope live_grep <CR>'),
+        dashboard.button('c', '  Configuration', ':e $MYVIMRC <CR>'),
+        dashboard.button('s', '  Restore Session', ':SessionRestore <CR>'),
+        dashboard.button('l', '󰒲  Lazy', ':Lazy <CR>'),
+        dashboard.button('m', '  Mason', ':Mason <CR>'),
+        dashboard.button('q', '  Quit', ':qa <CR>'),
+      }
+      
+      -- Set menu highlight
+      for _, button in ipairs(dashboard.section.buttons.val) do
+        button.opts.hl = 'AlphaButtons'
+        button.opts.hl_shortcut = 'AlphaShortcut'
+      end
+      dashboard.section.header.opts.hl = 'AlphaHeader'
+      dashboard.section.buttons.opts.hl = 'AlphaButtons'
+      dashboard.section.footer.opts.hl = 'AlphaFooter'
+      
+      -- Footer
+      local function footer()
+        return '🚀 Happy Coding!'
+      end
+      dashboard.section.footer.val = footer()
+      
+      dashboard.opts.layout = {
+        { type = 'padding', val = 2 },
+        dashboard.section.header,
+        { type = 'padding', val = 2 },
+        dashboard.section.buttons,
+        { type = 'padding', val = 1 },
+        dashboard.section.footer,
+      }
+      
+      -- Close Lazy and re-open when the dashboard is ready
+      if vim.o.filetype == 'lazy' then
+        vim.cmd.close()
+        vim.api.nvim_create_autocmd('User', {
+          pattern = 'AlphaReady',
+          callback = function()
+            require('lazy').show()
+          end,
+        })
+      end
+      
+      return dashboard
+    end,
+    config = function(_, dashboard)
+      -- Close auto-session when opening dashboard
+      vim.api.nvim_create_autocmd('User', {
+        pattern = 'AlphaReady',
+        desc = 'disable status and tablines for alpha',
+        callback = function()
+          if vim.bo.filetype == 'alpha' then
+            local prev_showtabline = vim.opt.showtabline
+            local prev_status = vim.opt.laststatus
+            vim.opt.showtabline = 0
+            vim.opt.laststatus = 0
+            vim.api.nvim_create_autocmd('BufUnload', {
+              buffer = 0,
+              callback = function()
+                vim.opt.laststatus = prev_status
+                vim.opt.showtabline = prev_showtabline
+              end,
+            })
+          end
+        end,
+      })
+      require('alpha').setup(dashboard.opts)
+    end,
+  },
 
   { -- Collection of various small independent plugins/modules
     'echasnovski/mini.nvim',
