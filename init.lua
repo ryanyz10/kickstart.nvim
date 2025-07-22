@@ -423,11 +423,10 @@ end
 
 vim.keymap.set({'n', 't'}, '<M-i>', toggle_floating_terminal, { desc = 'Toggle floating terminal' })
 
--- Split keybindings (I think these fit well under leader-s for "split")
-vim.keymap.set('n', '<leader>sv', '<cmd>vsplit<CR>', { desc = '[S]plit [v]ertical' })
-vim.keymap.set('n', '<leader>sh', '<cmd>split<CR>', { desc = '[S]plit [h]orizontal' })
-vim.keymap.set('n', '<leader>st', '<cmd>tabnew<CR>', { desc = '[S]plit new [t]ab' })
-vim.keymap.set('n', '<leader>se', '<C-w>=', { desc = '[S]plit [e]qualize' })
+-- These split commands have been moved to window management (<leader>w) and tab management (<leader>t)
+-- <leader>wv, <leader>wh already exist for vertical/horizontal splits
+-- <leader>tc already exists for new tab
+-- <leader>w= already exists for equalize
 
 -- File action keymaps
 vim.keymap.set('n', '<leader>fp', function()
@@ -520,8 +519,8 @@ vim.keymap.set('n', 'gi', vim.lsp.buf.implementation, { desc = '[G]o to [i]mplem
 vim.keymap.set('n', 'gr', vim.lsp.buf.references, { desc = '[G]o to [r]eferences' })
 vim.keymap.set('n', 'gt', vim.lsp.buf.type_definition, { desc = '[G]o to [t]ype definition' })
 
--- Scratchpad keymaps
-vim.keymap.set('n', '<leader>sn', function()
+-- File temp/scratch keymaps  
+vim.keymap.set('n', '<leader>ftn', function()
   -- Prompt for name and filetype
   vim.ui.input({ prompt = 'Scratch name (e.g., "api-test", "interview-prep"): ' }, function(name)
     if not name or name == '' then
@@ -587,10 +586,27 @@ vim.keymap.set('n', '<leader>sn', function()
       end
     )
   end)
-end, { desc = '[S]cratch [n]ew (named)' })
+end, { desc = '[F]ile [t]emp [n]ew' })
 
-vim.keymap.set('n', '<leader>so', '<cmd>ScratchOpen<CR>', { desc = '[S]cratch [o]pen' })
-vim.keymap.set('n', '<leader>sl', '<cmd>ScratchOpenFzf<CR>', { desc = '[S]cratch [l]ist (Telescope)' })
+vim.keymap.set('n', '<leader>fto', '<cmd>ScratchOpen<CR>', { desc = '[F]ile [t]emp [o]pen' })
+vim.keymap.set('n', '<leader>ftl', '<cmd>ScratchOpenFzf<CR>', { desc = '[F]ile [t]emp [l]ist' })
+
+-- File explorer keymaps
+vim.keymap.set('n', '<leader>fe', '<cmd>Neotree toggle<CR>', { desc = '[F]ile [e]xplorer toggle' })
+vim.keymap.set('n', '<leader>fc', '<cmd>Neotree focus<CR>', { desc = '[F]ile fo[c]us explorer' })
+vim.keymap.set('n', '<leader>fr', '<cmd>Neotree reveal<CR>', { desc = '[F]ile [r]eveal in explorer' })
+
+-- Toggle between light and dark theme variants
+vim.keymap.set('n', '<leader>td', function()
+  local current_bg = vim.o.background
+  if current_bg == 'dark' then
+    vim.o.background = 'light'
+    vim.notify('Switched to light mode', vim.log.levels.INFO)
+  else
+    vim.o.background = 'dark' 
+    vim.notify('Switched to dark mode', vim.log.levels.INFO)
+  end
+end, { desc = '[T]oggle [d]ark/light mode' })
 
 -- TIP: Disable arrow keys in normal mode
 -- vim.keymap.set('n', '<left>', '<cmd>echo "Use h to move!!"<CR>')
@@ -753,8 +769,12 @@ require('lazy').setup({
       -- Document existing key chains
       spec = {
         { '<leader>s', group = '[S]earch' },
-        { '<leader>t', group = '[T]oggle' },
+        { '<leader>t', group = '[T]ab' },
         { '<leader>h', group = 'Git [H]unk', mode = { 'n', 'v' } },
+        { '<leader>f', group = '[F]ile' },
+        { '<leader>ft', group = '[F]ile [T]emp' },
+        { '<leader>w', group = '[W]indow' },
+        { '<leader>b', group = '[B]uffer' },
       },
     },
   },
@@ -859,6 +879,9 @@ require('lazy').setup({
       vim.keymap.set('n', '<leader>sr', builtin.resume, { desc = '[S]earch [R]esume' })
       vim.keymap.set('n', '<leader>s.', builtin.oldfiles, { desc = '[S]earch Recent Files ("." for repeat)' })
       vim.keymap.set('n', '<leader><leader>', builtin.buffers, { desc = '[ ] Find existing buffers' })
+      
+      -- Theme picker (using built-in colorscheme picker to avoid background issues)
+      vim.keymap.set('n', '<leader>sc', '<cmd>Telescope colorscheme<CR>', { desc = '[S]earch [C]olorschemes' })
 
       -- Slightly advanced example of overriding default behavior and theme
       vim.keymap.set('n', '<leader>/', function()
@@ -1312,13 +1335,10 @@ require('lazy').setup({
     },
   },
 
-  { -- You can easily change to a different colorscheme.
-    -- Change the name of the colorscheme plugin below, and then
-    -- change the command in the config to whatever the name of that colorscheme is.
-    --
-    -- If you want to see what colorschemes are already installed, you can use `:Telescope colorscheme`.
+  -- Collection of popular colorschemes
+  {
     'folke/tokyonight.nvim',
-    priority = 1000, -- Make sure to load this before all the other start plugins.
+    priority = 1000,
     config = function()
       ---@diagnostic disable-next-line: missing-fields
       require('tokyonight').setup {
@@ -1326,12 +1346,176 @@ require('lazy').setup({
           comments = { italic = false }, -- Disable italics in comments
         },
       }
-
-      -- Load the colorscheme here.
-      -- Like many other themes, this one has different styles, and you could load
-      -- any other, such as 'tokyonight-storm', 'tokyonight-moon', or 'tokyonight-day'.
       vim.cmd.colorscheme 'tokyonight-night'
     end,
+  },
+  
+  -- Additional popular themes
+  { 'catppuccin/nvim', name = 'catppuccin', lazy = true },
+  { 'ellisonleao/gruvbox.nvim', lazy = true },
+  { 'rebelot/kanagawa.nvim', lazy = true },
+  { 'EdenEast/nightfox.nvim', lazy = true },
+  { 'rose-pine/neovim', name = 'rose-pine', lazy = true },
+  { 'Mofiqul/dracula.nvim', lazy = true },
+  { 'navarasu/onedark.nvim', lazy = true },
+  { 'projekt0n/github-nvim-theme', lazy = true },
+  { 'Mofiqul/vscode.nvim', lazy = true },
+  { 'marko-cerovac/material.nvim', lazy = true },
+  
+  -- Base16 theme collection (100+ themes)
+  { 'RRethy/base16-nvim', lazy = true },
+
+  -- File explorer tree
+  {
+    'nvim-neo-tree/neo-tree.nvim',
+    branch = 'v3.x',
+    dependencies = {
+      'nvim-lua/plenary.nvim',
+      'nvim-tree/nvim-web-devicons',
+      'MunifTanjim/nui.nvim',
+    },
+    opts = {
+      close_if_last_window = false,
+      popup_border_style = 'rounded',
+      enable_git_status = true,
+      enable_diagnostics = true,
+      default_component_configs = {
+        container = {
+          enable_character_fade = true
+        },
+        indent = {
+          indent_size = 2,
+          padding = 1,
+          with_markers = true,
+          indent_marker = '│',
+          last_indent_marker = '└',
+          highlight = 'NeoTreeIndentMarker',
+          with_expanders = nil,
+          expander_collapsed = '',
+          expander_expanded = '',
+          expander_highlight = 'NeoTreeExpander',
+        },
+        icon = {
+          folder_closed = '',
+          folder_open = '',
+          folder_empty = '󰜌',
+          default = '*',
+          highlight = 'NeoTreeFileIcon'
+        },
+        modified = {
+          symbol = '[+]',
+          highlight = 'NeoTreeModified',
+        },
+        name = {
+          trailing_slash = false,
+          use_git_status_colors = true,
+          highlight = 'NeoTreeFileName',
+        },
+        git_status = {
+          symbols = {
+            added     = '✚',
+            modified  = '',
+            deleted   = '✖',
+            renamed   = '󰁕',
+            untracked = '',
+            ignored   = '',
+            unstaged  = '󰄱',
+            staged    = '',
+            conflict  = '',
+          }
+        },
+      },
+      window = {
+        position = 'left',
+        width = 40,
+        mapping_options = {
+          noremap = true,
+          nowait = true,
+        },
+        mappings = {
+          ['<space>'] = { 
+            'toggle_node', 
+            nowait = false,
+          },
+          ['<2-LeftMouse>'] = 'open',
+          ['<cr>'] = 'open',
+          ['<esc>'] = 'cancel',
+          ['P'] = { 'toggle_preview', config = { use_float = true, use_image_nvim = true } },
+          ['l'] = 'focus_preview',
+          ['S'] = 'open_split',
+          ['s'] = 'open_vsplit',
+          ['t'] = 'open_tabnew',
+          ['w'] = 'open_with_window_picker',
+          ['C'] = 'close_node',
+          ['z'] = 'close_all_nodes',
+          ['a'] = { 
+            'add',
+            config = {
+              show_path = 'none'
+            }
+          },
+          ['A'] = 'add_directory',
+          ['d'] = 'delete',
+          ['r'] = 'rename',
+          ['y'] = 'copy_to_clipboard',
+          ['x'] = 'cut_to_clipboard',
+          ['p'] = 'paste_from_clipboard',
+          ['c'] = 'copy',
+          ['m'] = 'move',
+          ['q'] = 'close_window',
+          ['R'] = 'refresh',
+          ['?'] = 'show_help',
+          ['<'] = 'prev_source',
+          ['>'] = 'next_source',
+          ['i'] = 'show_file_details',
+        }
+      },
+      filesystem = {
+        filtered_items = {
+          visible = false,
+          hide_dotfiles = true,
+          hide_gitignored = true,
+          hide_hidden = true,
+          hide_by_name = {
+            '.DS_Store',
+            'thumbs.db'
+          },
+          never_show = {
+            '.git',
+            'node_modules'
+          },
+        },
+        follow_current_file = {
+          enabled = true,
+          leave_dirs_open = false,
+        },
+        group_empty_dirs = false,
+        hijack_netrw_behavior = 'open_default',
+        use_libuv_file_watcher = true,
+      },
+      buffers = {
+        follow_current_file = {
+          enabled = true,
+          leave_dirs_open = false,
+        },
+        group_empty_dirs = true,
+        show_unloaded = true,
+      },
+      git_status = {
+        window = {
+          position = 'float',
+          mappings = {
+            ['A']  = 'git_add_all',
+            ['gu'] = 'git_unstage_file',
+            ['ga'] = 'git_add_file',
+            ['gr'] = 'git_revert_file',
+            ['gc'] = 'git_commit',
+            ['gp'] = 'git_push',
+            ['gg'] = 'git_commit_and_push',
+          }
+        }
+      }
+    },
   },
 
   -- Highlight todo, notes, etc in comments
