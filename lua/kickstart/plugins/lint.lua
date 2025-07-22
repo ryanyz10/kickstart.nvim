@@ -7,7 +7,11 @@ return {
       local lint = require 'lint'
       lint.linters_by_ft = {
         markdown = { 'markdownlint' },
+        ruby = { 'rubocop' },
       }
+
+      -- Configure rubocop to use asdf path
+      lint.linters.rubocop.cmd = '/Users/ryanzhou/.asdf/shims/rubocop'
 
       -- To allow other plugins to add linters to require('lint').linters_by_ft,
       -- instead set linters_by_ft like this:
