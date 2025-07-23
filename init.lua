@@ -191,6 +191,7 @@ vim.keymap.set('n', '<leader>bn', '<cmd>bnext<CR>', { desc = 'Buffer [n]ext' })
 vim.keymap.set('n', '<leader>bp', '<cmd>bprev<CR>', { desc = 'Buffer [p]revious' })
 vim.keymap.set('n', '<leader>bd', '<cmd>bdelete<CR>', { desc = 'Buffer [d]elete' })
 vim.keymap.set('n', '<leader>bb', '<cmd>buffer #<CR>', { desc = 'Buffer switch to last' })
+vim.keymap.set('n', '<leader>`', '<cmd>buffer #<CR>', { desc = 'Toggle between recent buffers' })
 
 -- Tab management keymaps
 vim.keymap.set('n', '<leader>tn', '<cmd>tabnext<CR>', { desc = 'Tab [n]ext' })
@@ -791,6 +792,7 @@ require('lazy').setup({
     event = 'VimEnter',
     dependencies = {
       'nvim-lua/plenary.nvim',
+      'andrew-george/telescope-themes',
       { -- If encountering errors, see telescope-fzf-native README for installation instructions
         'nvim-telescope/telescope-fzf-native.nvim',
 
@@ -860,12 +862,20 @@ require('lazy').setup({
           ['ui-select'] = {
             require('telescope.themes').get_dropdown(),
           },
+          themes = {
+            enable_previewer = true,
+            enable_live_preview = true,
+            persist = {
+              enabled = false, -- Don't persist theme changes while browsing
+            },
+          },
         },
       }
 
       -- Enable Telescope extensions if they are installed
       pcall(require('telescope').load_extension, 'fzf')
       pcall(require('telescope').load_extension, 'ui-select')
+      pcall(require('telescope').load_extension, 'themes')
 
       -- See `:help telescope.builtin`
       local builtin = require 'telescope.builtin'
@@ -876,12 +886,12 @@ require('lazy').setup({
       vim.keymap.set('n', '<leader>sw', builtin.grep_string, { desc = '[S]earch current [W]ord' })
       vim.keymap.set('n', '<leader>sg', builtin.live_grep, { desc = '[S]earch by [G]rep' })
       vim.keymap.set('n', '<leader>sd', builtin.diagnostics, { desc = '[S]earch [D]iagnostics' })
-      vim.keymap.set('n', '<leader>sr', builtin.resume, { desc = '[S]earch [R]esume' })
+      vim.keymap.set('n', '<leader>sR', builtin.resume, { desc = '[S]earch [R]esume' })
       vim.keymap.set('n', '<leader>s.', builtin.oldfiles, { desc = '[S]earch Recent Files ("." for repeat)' })
       vim.keymap.set('n', '<leader><leader>', builtin.buffers, { desc = '[ ] Find existing buffers' })
       
-      -- Theme picker (using built-in colorscheme picker to avoid background issues)
-      vim.keymap.set('n', '<leader>sc', '<cmd>Telescope colorscheme<CR>', { desc = '[S]earch [C]olorschemes' })
+      -- Theme picker with live preview
+      vim.keymap.set('n', '<leader>sc', '<cmd>Telescope themes<CR>', { desc = '[S]earch [C]olorschemes' })
 
       -- Slightly advanced example of overriding default behavior and theme
       vim.keymap.set('n', '<leader>/', function()
@@ -1129,6 +1139,18 @@ require('lazy').setup({
         --
         -- But for many setups, the LSP (`ts_ls`) will work just fine
         ts_ls = {},
+        eslint = {
+          settings = {
+            packageManager = 'yarn'
+          },
+          on_attach = function(client, bufnr)
+            -- Auto-fix ESLint issues on save
+            vim.api.nvim_create_autocmd("BufWritePre", {
+              buffer = bufnr,
+              command = "EslintFixAll",
+            })
+          end,
+        },
 
         lua_ls = {
           -- cmd = { ... },
@@ -1227,11 +1249,26 @@ require('lazy').setup({
       end,
       formatters_by_ft = {
         lua = { 'stylua' },
-        -- Conform can also run multiple formatters sequentially
-        -- python = { "isort", "black" },
-        --
-        -- You can use 'stop_after_first' to run the first available formatter from the list
-        -- javascript = { "prettierd", "prettier", stop_after_first = true },
+        javascript = { 'prettier' },
+        javascriptreact = { 'prettier' },
+        typescript = { 'prettier' },
+        typescriptreact = { 'prettier' },
+        json = { 'prettier' },
+        css = { 'prettier' },
+        scss = { 'prettier' },
+        html = { 'prettier' },
+        markdown = { 'prettier' },
+        ruby = { 'rubocop' },
+      },
+      formatters = {
+        prettier = {
+          command = '/Users/ryanzhou/.asdf/shims/yarn',
+          args = { 'prettier', '--stdin-filepath', '$FILENAME' },
+        },
+        rubocop = {
+          command = '/Users/ryanzhou/.asdf/shims/rubocop',
+          args = { '--auto-correct', '--format', 'quiet', '--stderr', '--stdin', '$FILENAME' },
+        },
       },
     },
   },
@@ -1294,7 +1331,7 @@ require('lazy').setup({
         -- <c-k>: Toggle signature help
         --
         -- See :h blink-cmp-config-keymap for defining your own keymap
-        preset = 'default',
+        preset = 'enter',
 
         -- For more advanced Luasnip keymaps (e.g. selecting choice nodes, expansion) see:
         --    https://github.com/L3MON4D3/LuaSnip?tab=readme-ov-file#keymaps
@@ -1760,6 +1797,19 @@ require('lazy').setup({
     },
   },
 
+  { -- Find and replace across project with live preview
+    'nvim-pack/nvim-spectre',
+    build = false,
+    cmd = 'Spectre',
+    opts = { open_cmd = 'noswapfile vnew' },
+    keys = {
+      { '<leader>srr', function() require('spectre').toggle() end, desc = '[S]earch [r]eplace in project' },
+      { '<leader>srw', function() require('spectre').open_visual({ select_word = true }) end, desc = '[S]earch [r]eplace current [w]ord' },
+      { '<leader>srw', function() require('spectre').open_visual() end, mode = 'v', desc = '[S]earch [r]eplace selection' },
+      { '<leader>srf', function() require('spectre').open_file_search({ select_word = true }) end, desc = '[S]earch [r]eplace in current [f]ile' },
+    },
+  },
+
   -- The following comments only work if you have downloaded the kickstart repo, not just copy pasted the
   -- init.lua. If you want these files, they are in the repository, so you can just download them and
   -- place them in the correct locations.
@@ -1771,7 +1821,7 @@ require('lazy').setup({
   --
   -- require 'kickstart.plugins.debug',
   -- require 'kickstart.plugins.indent_line',
-  require 'kickstart.plugins.lint',
+  require 'kickstart.plugins.lint', -- For Ruby RuboCop linting
   -- require 'kickstart.plugins.autopairs',
   -- require 'kickstart.plugins.neo-tree',
   -- require 'kickstart.plugins.gitsigns', -- adds gitsigns recommend keymaps
